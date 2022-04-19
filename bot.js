@@ -1,5 +1,4 @@
 import { Client, GatewayIntentBits, Partials, EmbedBuilder } from 'discord.js';
-import sqlite3 from 'sqlite3';
 import config from './config.js';
 import fs from 'fs';
 import { createCodespace } from './util/codespace.js';
@@ -19,19 +18,7 @@ const client = new Client({
 
 
 // Load sqlite3 database, create if it doesn't exist
-const db = new sqlite3.Database('./storage/main.db', (err) => {
-  if (err) {
-    console.error(err.message);
-  }
-  console.log('Connected to the database.');
-});
-// Create table with fields id, username, discriminator, avatar
-db.run(`CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, discriminator INTEGER, avatar TEXT)`, (err) => {
-  if (err) {
-    return console.error(err.message);
-  }
-  console.log('Users table created.');
-});
+const db = {}
 
 
 

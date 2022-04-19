@@ -1,7 +1,7 @@
-### Caterpillar Coin - A Discord bot
+### Waikiki - A Discord bot
 
-`git clone https://github.com/kqwq/squishy-server-bot.git caterpillar`
+`git clone https://github.com/kqwq/waikiki-bot.git`
 
-`cd caterpillar`
+`cd waikiki-bot`
 
 `npm install && npm run start`
