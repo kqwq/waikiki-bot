@@ -1,0 +1,14 @@
++ Info channel
+  + /setInfo [] 
+
++ Status channel
+  + allow other users to change status
+
+- Commands
+  + bee movie Command
+  + create-codespace
+
+- Codespace
+  - Add channel
+  - Remove channel
+  
