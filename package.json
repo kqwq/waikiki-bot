@@ -15,7 +15,8 @@
     "discord.js": "^14.0.0-dev.1650240532-9ef7ffd",
     "dotenv": "^16.0.0",
     "moment": "^2.29.3",
-    "node-fetch": "^3.2.3"
+    "node-fetch": "^3.2.3",
+    "redis": "^4.0.6"
   },
   "keywords": []
 }

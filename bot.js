@@ -6,7 +6,8 @@ import { loadCommandsFromFile, registerLocalSlashCommands, registerGlobalSlashCo
 import dotenv from 'dotenv';
 import { publishProgram } from './util/ka_utils.js'; 
 import { handleVoiceStateUpdate } from './util/voice.js';
-import { setTimeout as sleep } from 'timers';
+import { createClient } from 'redis';
+
 dotenv.config();
 
 const client = new Client({
@@ -17,8 +18,21 @@ const client = new Client({
 });
 
 
-// Load sqlite3 database, create if it doesn't exist
-const db = {}
+// Load redis database, create if it doesn't exist
+
+const db = createClient();
+db.on('error', (err) => console.log('Redis Client Error', err));
+(async () => {
+  await db.connect();
+  // check if clamMembers key exists
+  let exists = await db.json.get('clamMembers');
+  if (!exists) {
+    console.log('clamMembers key does not exist, creating...');
+    await db.json.set('clamMembers', '.', []);
+  } else {
+    console.log('clamMembers key exists');
+  }
+})();
 
 
 
@@ -45,6 +59,19 @@ client.on('interactionCreate', async interaction => {
 
     const command = getSlashCommand(interaction.commandName);
     const args = interaction.options
+
+    if (command.access === 'admin') {
+      if (interaction.author.id !== config.ADMIN_ID) {
+        interaction.reply({ content: 'You don\'t have permission to use this command', ephemeral: true });
+        return;
+      }
+    } else if (command.access === 'clam') {
+      let clamMembers = await db.get('clamMembers');
+      if (!clamMembers.includes(interaction.author.id)) {
+        interaction.reply({ content: 'You aren\'t a Coding Den member!', ephemeral: true });
+        return;
+      }
+    }
 
     await command.callback(interaction, args, client, db).catch(e => {
       console.error(e);

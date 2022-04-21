@@ -1,22 +1,68 @@
-import { ButtonStyle } from 'discord.js';
+import { SelectMenuBuilder, SelectMenuOptionBuilder } from '@discordjs/builders';
+import { ActionRowBuilder, ButtonStyle, ButtonBuilder } from 'discord.js';
 import fs from 'fs';
 import { createChannel, createCategory } from './discordChannels.js';
 
-const createCodespace = async (inGuild, user, db, interaction) => {
-  let query = `INSERT INTO users (id, username, discriminator, avatar) VALUES (${user.id}, "${user.username}", ${user.discriminator}, "${user.avatarURL()}")`;
-  db.run(query, (err) => {
-    if (err) {
-      return console.error(err.message);
-    }
-    console.log(`User ${user.username}#${user.discriminator} (${user.id}) added to the database.`);
-  });
 
-  // Create metadata file
+
+const createCodespace = async (inGuild, user, db, interaction) => {
+  // let query = `INSERT INTO users (id, username, discriminator, avatar) VALUES (${user.id}, "${user.username}", ${user.discriminator}, "${user.avatarURL()}")`;
+  // db.run(query, (err) => {
+  //   if (err) {
+  //     return console.error(err.message);
+  //   }
+  //   console.log(`User ${user.username}#${user.discriminator} (${user.id}) added to the database.`);
+  // });
+
+  // Add member to clamMembers in redis db
+  let clamMembers = await db.json.get('clamMembers');
+  if (clamMembers.includes(user.id)) {
+    if (interaction) {
+      interaction.reply({ content: `${user.username} is already a member` });
+    } else {
+      let myDashboardChannelId = await db.json.get('clamMembers', "$.channels[0].id");
+      user.send(`Welcome back! Your codespace is already set up in <#${myDashboardChannelId}>.`);
+    }
+    return;
+  } else {
+    clamMembers.push(user.id);
+    await db.json.set('clamMembers', '.', clamMembers);
+  }
+
+
+  // Create member data
   let memberObj = {
     id: user.id,
     isMember: true,
+    slots: [...Array(4).keys()].map(i => {
+      return {
+        name: 'Slot ' + i,
+        trigger: 'none',
+        url: '',
+        params: []
+      }
+    }),
+    categoryName: user.username,
+    channels: [
+      {
+        isDashboard: true,
+        name: 'dashboard',
+        type: 'hidden',
+        description: '',
+      },
+      {
+        name: 'projects',
+        type: 'private',
+        description: '',
+
+      }
+    ]
   }
-  await fs.promises.writeFile(`./storage/user/${user.id}.json`, JSON.stringify(memberObj))
+
+  // Write member JSON data to redis db
+  await db.json.set(`member:${user.id}`, '.', memberObj);
+
+
 
   // Prepare action row
   const row = new ActionRowBuilder()
@@ -40,23 +86,30 @@ const createCodespace = async (inGuild, user, db, interaction) => {
     );
 
   // Set up category with channels
-  let category = await createCategory(inGuild, user.username);
-  let dashboardChannel = await createChannel(inGuild, category, 'dashboard', 'hidden');
-  await createChannel(inGuild, category, 'projects', 'private');
-  await dashboardChannel.send(`<@${user.id}>`);
-  await dashboardChannel.send({
-    embeds: [{
-      title: `${user.nickname}'s Dashboard`,
-      description: 'This is the dashboard for your category. Only you can see this channel. Use this widget to create new sub-channels or delete existing ones.',
-      color: 0xd4a20f,
-    }],
-    components: [row]
-  });
+  const category = await createCategory(inGuild, user.username);
+  for (let channelData of memberObj.channels) {
+    const channel = await createChannel(user, inGuild, category, channelData.name, channelData.type);
+    channelData.id = channel.id;
 
+    if (channelData.isDashboard) {
+      await channel.send(`<@${user.id}>`);
+      await channel.send({
+        embeds: [{
+          title: `${user.username}'s Dashboard`,
+          description: 'This is the dashboard for your codespace. More info coming soon!',
+          color: 0xd4a20f,
+        }],
+        components: [row]
+      });
+      await watchSlot(channel, user, db);
+    }
+  }
 
+  // Save channel data to redis db
+  await db.json.set(`member:${user.id}`, '$.channels', memberObj.channels);
 
   if (interaction) {
-    interaction.reply(`Created category for ${user.username}#${user.discriminator} (${user.id})`);
+    interaction.reply(`Created codespace for <@${user.id}>`);
   }
 }
 
@@ -86,6 +139,78 @@ const deleteShowcase = async (inGuild, user, db, interaction) => {
   if (interaction) {
     interaction.reply(`Removed category and all its channels for ${user.username}#${user.discriminator} (${user.id})`);
   }
+}
+
+const watchSlot = async (channel, user, db) => {
+  let memberObj = await db.json.get(`member:${user.id}`);
+
+  const filter = i => true
+  const collector = channel.createMessageComponentCollector({ filter });
+  collector.on('collect', async i => {
+    if (i.user.id === user.id) {
+      let slotInd = parseInt(i.component.customId.slice(4));
+      console.log(`${i.component.label} was clicked` + slotInd);
+      await i.reply(`${i.component.label} was clicked`);
+      let slot = memberObj.slots[slotInd];
+      if (slot.trigger === 'none') {
+        await i.reply({ content: `You have not set a trigger for this slot yet.`, ephemeral: true });
+      } else if (slot.trigger === 'fetch') {
+        await i.reply({ content: `Fetching url \`${slot.url}\``, ephemeral: true });
+        let res = await fetch(slot.url);
+        if (!res.ok) {
+          await i.followUp({ content: res.statusText, ephemeral: true });
+          return
+        }
+        let text = await res.text();
+        let embed = {
+          title: `${slot.name} success!`,
+          description: text,
+          color: 0x00ff00,
+        }
+        await i.followUp({ embed });
+      } else {
+        await i.reply({ content: `Unknown trigger type ${slot.trigger}`, ephemeral: true });
+      }
+    } else {
+      await i.reply({ content: `You are not the owner of this channel.`, ephemeral: true });
+    }
+  })
+}
+
+
+const setSlot = async (interaction, slotInd, db) => {
+  let memberObj = await db.json.get(`member:${interaction.user.id}`);
+  const row = new ActionRowBuilder()
+    .addComponents(
+      new SelectMenuBuilder()
+        .setCustomId('trigger-method')
+        .addOptions(
+          new SelectMenuOptionBuilder()
+            .setValue('GET')
+            .setLabel('GET')
+            .setDescription('Use the GET method to fetch a url'),
+          new SelectMenuOptionBuilder()
+            .setValue('POST')
+            .setLabel('POST')
+            .setDescription('Use the POST method to fetch a url'),
+          new SelectMenuOptionBuilder()
+            .setValue('PUT')
+            .setLabel('PUT')
+            .setDescription('Use the PUT method to fetch a url'),
+          new SelectMenuOptionBuilder()
+            .setValue('DELETE')
+            .setLabel('DELETE')
+            .setDescription('Use the DELETE method to fetch a url'),
+          new SelectMenuOptionBuilder()
+            .setValue('PATCH')
+            .setLabel('PATCH')
+            .setDescription('Use the PATCH method to fetch a url')
+        )
+    )
+  await interaction.reply({ components: [row] })
+  
+
+
 }
 
 
