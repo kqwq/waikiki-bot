@@ -1,12 +1,13 @@
 import { Client, GatewayIntentBits, Partials, EmbedBuilder } from 'discord.js';
 import config from './config.js';
 import fs from 'fs';
-import { createCodespace } from './util/codespace.js';
+import { createCodespace, watchAllExistingCodeSpaces } from './util/codespace.js';
 import { loadCommandsFromFile, registerLocalSlashCommands, registerGlobalSlashCommand, getSlashCommand } from './util/slashCommands.js';
 import dotenv from 'dotenv';
 import { publishProgram } from './util/ka_utils.js'; 
 import { handleVoiceStateUpdate } from './util/voice.js';
-import { createClient } from 'redis';
+import Keyv from 'keyv';
+
 
 dotenv.config();
 
@@ -18,17 +19,18 @@ const client = new Client({
 });
 
 
-// Load redis database, create if it doesn't exist
+// Load database, create if it doesn't exist
+console.log('Loading database...');
+const db = new Keyv('sqlite://storage/sqlite.db');
 
-const db = createClient();
-db.on('error', (err) => console.log('Redis Client Error', err));
+
+db.on('error', err => console.error('Keyv connection error:', err));
 (async () => {
-  await db.connect();
   // check if clamMembers key exists
-  let exists = await db.json.get('clamMembers');
+  let exists = await db.get('clamMembers');
   if (!exists) {
     console.log('clamMembers key does not exist, creating...');
-    await db.json.set('clamMembers', '.', []);
+    await db.set('clamMembers', []);
   } else {
     console.log('clamMembers key exists');
   }
@@ -48,6 +50,9 @@ client.on('ready', async () => {
   await loadCommandsFromFile();
   await registerLocalSlashCommands();
   //await registerGlobalSlashCommand();
+
+  // resume watching codespaces
+  watchAllExistingCodeSpaces(client.mainGuild, db);
 });
 
 client.on('interactionCreate', async interaction => {

@@ -15,18 +15,18 @@ const createCodespace = async (inGuild, user, db, interaction) => {
   // });
 
   // Add member to clamMembers in redis db
-  let clamMembers = await db.json.get('clamMembers');
+  let clamMembers = await db.get('clamMembers');
   if (clamMembers.includes(user.id)) {
     if (interaction) {
       interaction.reply({ content: `${user.username} is already a member` });
     } else {
-      let myDashboardChannelId = await db.json.get('clamMembers', "$.channels[0].id");
+      let myDashboardChannelId = await db.get('clamMembers', "$.channels[0].id");
       user.send(`Welcome back! Your codespace is already set up in <#${myDashboardChannelId}>.`);
     }
     return;
   } else {
     clamMembers.push(user.id);
-    await db.json.set('clamMembers', '.', clamMembers);
+    await db.set('clamMembers', clamMembers);
   }
 
 
@@ -60,29 +60,29 @@ const createCodespace = async (inGuild, user, db, interaction) => {
   }
 
   // Write member JSON data to redis db
-  await db.json.set(`member:${user.id}`, '.', memberObj);
+  await db.set(`member:${user.id}`, memberObj);
 
 
 
   // Prepare action row
-  const row = new ActionRowBuilder()
+  const row = new ActionRowBuilder() // RGB, gray color oder
     .addComponents(
       new ButtonBuilder()
         .setCustomId('slot0')
         .setLabel('Slot 0')
-        .setStyle(ButtonStyle.Primary),
+        .setStyle(ButtonStyle.Danger),
       new ButtonBuilder()
         .setCustomId('slot1')
         .setLabel('Slot 1')
-        .setStyle(ButtonStyle.Secondary),
+        .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
         .setCustomId('slot2')
         .setLabel('Slot 2')
-        .setStyle(ButtonStyle.Success),
+        .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId('slot3')
         .setLabel('Slot 3')
-        .setStyle(ButtonStyle.Danger)
+        .setStyle(ButtonStyle.Secondary)
     );
 
   // Set up category with channels
@@ -106,7 +106,7 @@ const createCodespace = async (inGuild, user, db, interaction) => {
   }
 
   // Save channel data to redis db
-  await db.json.set(`member:${user.id}`, '$.channels', memberObj.channels);
+  await db.set(`member:${user.id}`, memberObj);
 
   if (interaction) {
     interaction.reply(`Created codespace for <@${user.id}>`);
@@ -142,7 +142,7 @@ const deleteShowcase = async (inGuild, user, db, interaction) => {
 }
 
 const watchSlot = async (channel, user, db) => {
-  let memberObj = await db.json.get(`member:${user.id}`);
+  let memberObj = await db.get(`member:${user.id}`);
 
   const filter = i => true
   const collector = channel.createMessageComponentCollector({ filter });
@@ -150,10 +150,9 @@ const watchSlot = async (channel, user, db) => {
     if (i.user.id === user.id) {
       let slotInd = parseInt(i.component.customId.slice(4));
       console.log(`${i.component.label} was clicked` + slotInd);
-      await i.reply(`${i.component.label} was clicked`);
       let slot = memberObj.slots[slotInd];
       if (slot.trigger === 'none') {
-        await i.reply({ content: `You have not set a trigger for this slot yet.`, ephemeral: true });
+        await i.reply({ content: `You have not set a trigger for slot ${slotInd} slot yet.`, ephemeral: true });
       } else if (slot.trigger === 'fetch') {
         await i.reply({ content: `Fetching url \`${slot.url}\``, ephemeral: true });
         let res = await fetch(slot.url);
@@ -177,9 +176,20 @@ const watchSlot = async (channel, user, db) => {
   })
 }
 
+const watchAllExistingCodeSpaces = async (guild, db) => {
+  let memberObjs = await db.get('clamMembers');
+  for (let memberId of memberObjs) {
+    let memberObj = await db.get(`member:${memberId}`);
+    let channel = await guild.channels.cache.find(c => c.id === memberObj.channels[0].id);
+    if (channel) {
+      await watchSlot(channel, guild.members.cache.get(memberId), db);
+    }
+  }
+}
+
 
 const setSlot = async (interaction, slotInd, db) => {
-  let memberObj = await db.json.get(`member:${interaction.user.id}`);
+  let memberObj = await db.get(`member:${interaction.user.id}`);
   const row = new ActionRowBuilder()
     .addComponents(
       new SelectMenuBuilder()
@@ -214,4 +224,4 @@ const setSlot = async (interaction, slotInd, db) => {
 }
 
 
-export { createCodespace, deleteShowcase }
+export { createCodespace, deleteShowcase, setSlot, watchAllExistingCodeSpaces }

@@ -11,11 +11,14 @@
   "license": "ISC",
   "dependencies": {
     "@discordjs/rest": "^0.1.0-canary.0",
+    "@keyv/sqlite": "^3.5.0",
     "discord-api-types": "^0.24.0",
     "discord.js": "^14.0.0-dev.1650240532-9ef7ffd",
     "dotenv": "^16.0.0",
+    "keyv": "^4.2.2",
     "moment": "^2.29.3",
     "node-fetch": "^3.2.3",
+    "pify": "^5.0.0",
     "redis": "^4.0.6"
   },
   "keywords": []
