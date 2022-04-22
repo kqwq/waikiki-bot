@@ -14,6 +14,7 @@ export default {
       }
     ]
   },
+  access: 'admin',
   callback: async (interaction, args, client, db) => {
     let user = args.getUser('user');
     createCodespace(interaction.guild, user, db, interaction);

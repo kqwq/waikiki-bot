@@ -6,7 +6,7 @@ export default {
     type: 1,
     description: 'Restarts the bot',
   },
-  permission: 'admin',
+  access: 'admin',
   callback: async (interaction, args, client, db) => {
     interaction.reply('Restarting...');
     await sleep(500);

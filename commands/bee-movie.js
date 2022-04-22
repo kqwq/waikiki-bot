@@ -20,7 +20,6 @@ export default {
     type: 1,
     description: 'Sends the bee movie script',
   },
-  permission: 'everyone',
   callback: async (interaction, args, client, db) => {
     let entireScript = await promises.readFile('./asset/text/bee-movie.txt', 'utf8');
     entireScript = entireScript.split('\n')

@@ -1,7 +1,7 @@
 import { Client, GatewayIntentBits, Partials, EmbedBuilder } from 'discord.js';
 import config from './config.js';
 import fs from 'fs';
-import { createCodespace, watchAllExistingCodeSpaces } from './util/codespace.js';
+import { createCodespace, watchAllExistingCodeSpaces, registerSlot } from './util/codespace.js';
 import { loadCommandsFromFile, registerLocalSlashCommands, registerGlobalSlashCommand, getSlashCommand } from './util/slashCommands.js';
 import dotenv from 'dotenv';
 import { publishProgram } from './util/ka_utils.js'; 
@@ -57,7 +57,9 @@ client.on('ready', async () => {
 
 client.on('interactionCreate', async interaction => {
   if (interaction.isModalSubmit()) {
-    if (interaction.customId === 'auth') {
+    if (interaction.customId.startsWith('slot')) {
+      registerSlot(interaction, db);
+    } else if (interaction.customId === 'auth') {
       publishProgram(interaction, client)
     }
   }else if (interaction.isCommand()) {
@@ -65,16 +67,16 @@ client.on('interactionCreate', async interaction => {
     const command = getSlashCommand(interaction.commandName);
     const args = interaction.options
 
-    if (command.access === 'admin') {
-      if (interaction.author.id !== config.ADMIN_ID) {
+    if (!config.ADMIN_IDS.includes(interaction.user.id)) { // If interaction is not from admin
+      if (command.access === 'admin') {
         interaction.reply({ content: 'You don\'t have permission to use this command', ephemeral: true });
         return;
-      }
-    } else if (command.access === 'clam') {
-      let clamMembers = await db.get('clamMembers');
-      if (!clamMembers.includes(interaction.author.id)) {
-        interaction.reply({ content: 'You aren\'t a Coding Den member!', ephemeral: true });
-        return;
+      } else if (command.access === 'clam') {
+        let clamMembers = await db.get('clamMembers');
+        if (!clamMembers.includes(interaction.user.id)) {
+          interaction.reply({ content: 'You aren\'t a Coding Den member!', ephemeral: true });
+          return;
+        }
       }
     }
 

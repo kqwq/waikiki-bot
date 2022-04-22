@@ -3,7 +3,7 @@ import { setInfoMessage } from '../util/infoChannel.js';
 
 export default {
   slashCommandInfo: {
-    name: 'set-bot-status',
+    name: 'bot-status',
     type: 1,
     description: 'Changes the bot status.',
     options: [
@@ -43,7 +43,7 @@ export default {
       }
     ]
   },
-  permission: 'clam',
+  access: 'clam',
   callback: async (interaction, args, client, db) => {
     await client.user.setActivity({ name: args.getString('status-text'), type: args.getInteger('status-type') });
     await interaction.reply({ content: 'Set!', ephemeral: true });

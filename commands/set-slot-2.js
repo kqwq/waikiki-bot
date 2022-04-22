@@ -6,7 +6,8 @@ export default {
     type: 1,
     description: 'Assign slot 2 a trigger',
   },
+  access: 'clam',
   callback: async (interaction, args, client, db) => {
-    setSlot(interaction, 2, db);
+    setSlot(interaction, 1, db);
   }
 }

@@ -6,7 +6,7 @@ export default {
     type: 1,
     description: 'Inviets the bot',
   },
-  permission: 'everyone',
+  access: 'everyone',
   callback: async (interaction, args, client, db) => {
     interaction.reply(`https://discord.com/api/oauth2/authorize?client_id=${config.CLIENT_ID}&permissions=2147534912&scope=bot%20applications.commands`);
   }

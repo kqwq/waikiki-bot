@@ -1,10 +1,10 @@
-//import { deleteShowcase } from "../util/showcase.js";
+import { deleteCodespace } from "../util/codespace.js";
 
 export default {
   slashCommandInfo: {
-    name: 'delete-user-category',
+    name: 'delete-codespace',
     type: 1,
-    description: 'Delete a category for the specified user',
+    description: 'Delete a codespace for the specified user',
     options: [
       {
         name: 'user',
@@ -16,7 +16,7 @@ export default {
   },
   callback: async (interaction, args, client, db) => {
     let user = args.getUser('user');
-    deleteShowcase(interaction.guild, user, db, interaction);
+    deleteCodespace(interaction.guild, user, db, interaction);
   }
 
 }
